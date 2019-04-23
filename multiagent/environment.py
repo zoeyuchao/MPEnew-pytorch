@@ -191,10 +191,10 @@ class MultiAgentEnv(gym.Env):
             if self.discrete_action_input:
                 agent.action.u = np.zeros(self.world.dim_p)
                 # process discrete action
-                if action[0] == 1: agent.action.u[0] = -1.0
-                if action[0] == 2: agent.action.u[0] = +1.0
-                if action[0] == 3: agent.action.u[1] = -1.0
-                if action[0] == 4: agent.action.u[1] = +1.0
+                if action[0] == 1: agent.action.u[0] = +0.1
+                if action[0] == 2: agent.action.u[0] = -0.1
+                if action[0] == 3: agent.action.u[1] = -0.1
+                if action[0] == 4: agent.action.u[1] = +0.1
                 d = self.world.dim_p
             else:
                 if self.discrete_action_space:
@@ -203,21 +203,18 @@ class MultiAgentEnv(gym.Env):
                     d = 5
                 else:
                     if self.force_discrete_action:
-                        p = np.argmax(action[0][0:self.world.dim_p])
-                        action[0][:] = 0.0
-                        action[0][p] = 1.0
+                        for k in np.range(self.world.dim_p):
+                            action[0][k] = round(action[0][k])
                     agent.action.u = action[0][0:self.world.dim_p]
                     d = self.world.dim_p
-
-            sensitivity = 5.0
-            if agent.accel is not None:
-                sensitivity = agent.accel
-            agent.action.u *= sensitivity
 
             if (not agent.silent) and (not isinstance(action_space, MultiDiscrete)):
                 action[0] = action[0][d:]
             else:
                 action = action[1:]
+        scale = 1
+        agent.action.u *= scale
+        #print(agent.action.u)
 
         if not agent.silent:
             # communication action
@@ -261,7 +258,7 @@ class MultiAgentEnv(gym.Env):
                     else:
                         word = alphabet[np.argmax(other.state.c)]
                     message += (other.name + ' to ' + agent.name + ': ' + word + '   ')
-            print(message)
+            #print(message)
 
         for i in range(len(self.viewers)):
             # create viewers (if necessary)

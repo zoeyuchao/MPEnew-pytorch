@@ -10,7 +10,7 @@ class Scenario(BaseScenario):
         world.dim_c = 2
         num_agents = 3
         num_landmarks = 3
-        world.collaborative = True
+        #world.collaborative = True
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
         for i, agent in enumerate(world.agents):
@@ -29,7 +29,7 @@ class Scenario(BaseScenario):
         return world
 
     def reset_world(self, world):
-        train = False#True
+        train = False
         # random properties for agents
         world.assign_agent_colors()
         # random properties for landmarks
@@ -94,11 +94,12 @@ class Scenario(BaseScenario):
         for i in range(len(world.landmarks)):
             dist = np.sqrt(np.sum(np.square(world.agents[i].state.p_pos - world.landmarks[i].state.p_pos)))
             #rew -= dist
+            
             if(dist < 0.05):
-                rew += 15
+                rew += 20
+                #print(rew)
             else:
             	rew -= dist
-
 
         if agent.collide:
             for a in world.agents:
