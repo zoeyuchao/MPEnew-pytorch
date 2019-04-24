@@ -8,8 +8,8 @@ class Scenario(BaseScenario):
         world = World()
         # set any world properties first
         world.dim_c = 2
-        num_agents = 3
-        num_landmarks = 3
+        num_agents = 4
+        num_landmarks = 4
         #world.collaborative = True
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
@@ -29,7 +29,7 @@ class Scenario(BaseScenario):
         return world
 
     def reset_world(self, world):
-        train = False		
+        train = True
         # random properties for agents
         world.assign_agent_colors()
         # random properties for landmarks
@@ -42,9 +42,12 @@ class Scenario(BaseScenario):
                 agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
             else:
                 if(world.dim_p == 2):
-            	    agent.state.p_pos = np.array([-1, -1 + 2.0 / (len(world.agents) - 1 ) * i])
+                    if i%2:
+            	          agent.state.p_pos = np.array([1.0 , -2.0 + 2.0 / (len(world.agents)/2 + 1 ) * i//2])
+                    else:
+                        agent.state.p_pos = np.array([-1.0 , -2.0 + 2.0 / (len(world.agents)/2 + 1 ) * i//2])
                 else:
-            	    agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
+            	      agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
             
             agent.state.p_vel = np.zeros(world.dim_p)
             agent.state.c = np.zeros(world.dim_c)
@@ -53,7 +56,8 @@ class Scenario(BaseScenario):
                 landmark.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
             else:
                 if(world.dim_p == 2):
-            	    landmark.state.p_pos = np.array([1.0, 1 - 2.0 / (len(world.landmarks) - 1 ) * i])
+            	    #landmark.state.p_pos = np.array([0.5, 0.8 - 1.6 / (len(world.landmarks) - 1 ) * i])
+                   landmark.state.
                 else:
             	    landmark.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
             
@@ -117,36 +121,16 @@ class Scenario(BaseScenario):
                 theta = agent.state.theta
                 delta = landmark.state.p_pos - agent.state.p_pos
                 R = np.array([[math.cos(theta),math.sin(theta)],[-math.sin(theta),math.cos(theta)]])
-                xy_pos = np.dot(R, delta)
-                p = np.sqrt(np.sum(np.square(xy_pos)))
-                alpha = math.asin(xy_pos[1]/p)
-                if xy_pos[0] < 0:
-                    alpha = math.pi - alpha
-                if xy_pos[0] > 0 and alpha < 0:
-                    alpha = 2 * math.pi + alpha
-                entity_pos.append([p,alpha])
+                entity_pos.append(np.dot(R,delta))
 
         # communication of all other agents
         comm = []
         other_pos = []
-        other_theta = []
-        self_theta = []
         for other in world.agents:
-            if other is agent: 
-                self_theta.append(np.array([agent.state.theta]))
-                continue
+            if other is agent: continue
             comm.append(other.state.c)
-            other_theta.append(np.array([other.state.theta]))
             theta = agent.state.theta
             delta = other.state.p_pos - agent.state.p_pos
             R = np.array([[math.cos(theta),math.sin(theta)],[-math.sin(theta),math.cos(theta)]])
-            xy_pos = np.dot(R, delta)
-            p = np.sqrt(np.sum(np.square(xy_pos)))
-            alpha = math.asin(xy_pos[1]/p)
-            if xy_pos[0] < 0:
-                alpha = math.pi - alpha
-            if xy_pos[0] > 0 and alpha < 0:
-                alpha = 2 * math.pi + alpha
-            other_pos.append([p,alpha])
-     
-        return np.concatenate(self_theta + entity_pos + other_pos + other_theta)
+            other_pos.append(np.dot(R,delta))
+        return np.concatenate([agent.state.p_vel] + entity_pos + other_pos + comm)

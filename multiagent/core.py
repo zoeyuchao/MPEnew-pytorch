@@ -145,15 +145,13 @@ class World(object):
         return [agent for agent in self.agents if agent.action_callback is not None]
     
 
-    # 新增函数 计算world中所有entity（包括agent 和 landmarks）的距离并判断是否相撞
-    def calculate_distances(self):
+    # 新增函数 计算world中所有entity（包括agent �?landmarks）的距离并判断是否相�?    def calculate_distances(self):
         if self.cached_dist_vect is None:
             # initialize distance data structure
             self.cached_dist_vect = np.zeros((len(self.entities),
                                               len(self.entities),
                                               self.dim_p))
-            # calculate minimum distance for a collision between all entities （size相加）
-            self.min_dists = np.zeros((len(self.entities), len(self.entities)))
+            # calculate minimum distance for a collision between all entities （size相加�?            self.min_dists = np.zeros((len(self.entities), len(self.entities)))
             for ia, entity_a in enumerate(self.entities):
                 for ib in range(ia + 1, len(self.entities)):
                     entity_b = self.entities[ib]
@@ -161,18 +159,16 @@ class World(object):
                     self.min_dists[ia, ib] = min_dist
                     self.min_dists[ib, ia] = min_dist
 
-        # cached_dist_vect 保存了两两 entity 之间的每一维坐标差，还未计算距离
-        for ia, entity_a in enumerate(self.entities):
+        # cached_dist_vect 保存了两�?entity 之间的每一维坐标差，还未计算距�?        for ia, entity_a in enumerate(self.entities):
             for ib in range(ia + 1, len(self.entities)):
                 entity_b = self.entities[ib]
                 delta_pos = entity_a.state.p_pos - entity_b.state.p_pos
                 self.cached_dist_vect[ia, ib, :] = delta_pos
                 self.cached_dist_vect[ib, ia, :] = -delta_pos
 
-        # cached_dist_mag 对 cached_dist_vect 中的两两距离求平方开根，得到2维距离矩阵
-        self.cached_dist_mag = np.linalg.norm(self.cached_dist_vect, axis=2)
+        # cached_dist_mag �?cached_dist_vect 中的两两距离求平方开根，得到2维距离矩�?        self.cached_dist_mag = np.linalg.norm(self.cached_dist_vect, axis=2)
 
-        # cached_collisions 是一个二维0/1矩阵，1表示两个 entity 相撞
+        # cached_collisions 是一个二�?/1矩阵�?表示两个 entity 相撞
         self.cached_collisions = (self.cached_dist_mag <= self.min_dists)
 
     # 新增函数
@@ -262,6 +258,10 @@ class World(object):
             entity.state.p_pos[0] += x * math.cos(-entity.state.theta) + y * math.sin(-entity.state.theta)
             entity.state.p_pos[1] += y * math.cos(-entity.state.theta) - x * math.sin(-entity.state.theta)
             entity.state.theta += theta_temp
+            if (entity.state.theta > (2 * math.pi)):
+                entity.state.theta -= 2 * math.pi
+            if (entity.state.theta < 0):
+                entity.state.theta += 2 * math.pi
        
 
     def update_agent_state(self, agent):

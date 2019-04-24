@@ -212,9 +212,6 @@ class MultiAgentEnv(gym.Env):
                 action[0] = action[0][d:]
             else:
                 action = action[1:]
-        scale = 1
-        agent.action.u *= scale
-        #print(agent.action.u)
 
         if not agent.silent:
             # communication action
