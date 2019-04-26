@@ -1,10 +1,12 @@
+import numpy as np
+import copy
+import math
+
 import gym
 from gym import spaces
 from gym.envs.registration import EnvSpec
-import numpy as np
+
 from multiagent.multi_discrete import MultiDiscrete
-import copy
-import math
 
 # update bounds to center around agent
 cam_range = 1
@@ -16,7 +18,6 @@ class MultiAgentEnv(gym.Env):
         'render.modes' : ['human', 'rgb_array']
     }
 
-    # 新增 post_step_callback �?discrete_action
     def __init__(self, world, reset_callback=None, reward_callback=None,
                  observation_callback=None, info_callback=None,
                  done_callback=None, post_step_callback=None,
@@ -33,8 +34,6 @@ class MultiAgentEnv(gym.Env):
         self.observation_callback = observation_callback
         self.info_callback = info_callback
         self.done_callback = done_callback
-        
-        # 新增 post_step_callback �?        
         self.post_step_callback = post_step_callback
 
         # environment parameters
@@ -99,7 +98,6 @@ class MultiAgentEnv(gym.Env):
             self.viewers = [None] * self.n
         self._reset_render()
 
-    # 新增 _seed 函数
     def _seed(self, seed=None):
         if seed is None:
             np.random.seed(1)
@@ -132,7 +130,6 @@ class MultiAgentEnv(gym.Env):
         if self.shared_reward:
             reward_n = [reward] * self.n
 
-        # 新增判断
         if self.post_step_callback is not None:
             self.post_step_callback(self.world)
         
@@ -261,11 +258,9 @@ class MultiAgentEnv(gym.Env):
 
         for i in range(len(self.viewers)):
             # create viewers (if necessary)
-
             if self.viewers[i] is None:
-                # import rendering only if we need it (and don't import for headless machines)
-                #from gym.envs.classic_control import rendering
-                from multiagent import rendering
+                # import rendering only if we need it (and don't import for headless machines)   
+                from multiagent import rendering            
                 self.viewers[i] = rendering.Viewer(700,700)
  
 
@@ -274,10 +269,7 @@ class MultiAgentEnv(gym.Env):
             # import rendering only if we need it (and don't import for headless machines)
             from multiagent import rendering
             self.render_geoms = []
-            self.render_geoms_xform = []
-            # arrow
-            self.arrow_geoms = []
-            self.arrow_geoms_xform = []          
+            self.render_geoms_xform = []         
             # comm_geoms
             self.comm_geoms = []
             
@@ -288,18 +280,7 @@ class MultiAgentEnv(gym.Env):
                 # entity_comm_geoms
                 entity_comm_geoms = []
                 
-                if 'agent' in entity.name:
-                    # draw arrow
-                    if entity.movable:
-                        theta = entity.state.theta
-                        radius = entity.size
-                        start = (0, 0)
-                        end = (math.cos(theta)*radius, math.sin(theta)*radius)
-                        arrow = rendering.make_line(start, end)
-                        arrow.add_attr(xform)
-                        self.arrow_geoms.append(arrow)
-                        self.arrow_geoms_xform.append(xform)
-          
+                if 'agent' in entity.name:          
                     geom.set_color(*entity.color, alpha=0.5)
 
                     # entity.silent
@@ -355,9 +336,7 @@ class MultiAgentEnv(gym.Env):
             for viewer in self.viewers:
                 viewer.geoms = []
                 for geom in self.render_geoms:
-                    viewer.add_geom(geom)
-                #for arrow in self.arrow_geoms:
-                    #viewer.add_onetime(arrow)    
+                    viewer.add_geom(geom)   
                 for entity_comm_geoms in self.comm_geoms:
                     for geom in entity_comm_geoms:
                         viewer.add_geom(geom)
