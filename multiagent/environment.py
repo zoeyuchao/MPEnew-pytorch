@@ -3,9 +3,11 @@ from gym import spaces
 from gym.envs.registration import EnvSpec
 import numpy as np
 from multiagent.multi_discrete import MultiDiscrete
+import copy
+import math
 
 # update bounds to center around agent
-cam_range = 2
+cam_range = 1
 
 # environment for all agents in the multiagent world
 # currently code assumes that no agents will be created/destroyed at runtime!
@@ -21,6 +23,7 @@ class MultiAgentEnv(gym.Env):
                  shared_viewer=True, discrete_action=False):
 
         self.world = world
+        self.world_before = world
         self.agents = self.world.policy_agents
         # set required vectorized gym env property
         self.n = len(world.policy_agents)
@@ -110,6 +113,7 @@ class MultiAgentEnv(gym.Env):
         done_n = []
         info_n = {'n': []}
         self.agents = self.world.policy_agents
+        self.world_before = copy.deepcopy(self.world)
         # set action for each agent
         for i, agent in enumerate(self.agents):
             self._set_action(action_n[i], agent, self.action_space[i])
@@ -169,7 +173,7 @@ class MultiAgentEnv(gym.Env):
     def _get_reward(self, agent):
         if self.reward_callback is None:
             return 0.0
-        return self.reward_callback(agent, self.world)
+        return self.reward_callback(agent, self.world, self.world_before)
 
     # set env action for a particular agent
     def _set_action(self, action, agent, action_space, time=None):
@@ -232,9 +236,7 @@ class MultiAgentEnv(gym.Env):
         self.render_geoms_xform = None
 
     # render environment
-    # render -> _render, 新增close
     def render(self, mode='human', close=True):
-    # def _render(self, mode='human', close=True):
         if close:
             # close any existic renderers
             for i,viewer in enumerate(self.viewers):
@@ -270,25 +272,37 @@ class MultiAgentEnv(gym.Env):
         # create rendering geometry
         if self.render_geoms is None:
             # import rendering only if we need it (and don't import for headless machines)
-            #from gym.envs.classic_control import rendering
             from multiagent import rendering
             self.render_geoms = []
             self.render_geoms_xform = []
-
-            # 新增 comm_geoms
+            # arrow
+            self.arrow_geoms = []
+            self.arrow_geoms_xform = []          
+            # comm_geoms
             self.comm_geoms = []
-
+            
             for entity in self.world.entities:
                 geom = rendering.make_circle(entity.size)
                 xform = rendering.Transform()
-
-                # 新增 entity_comm_geoms
+                
+                # entity_comm_geoms
                 entity_comm_geoms = []
-
+                
                 if 'agent' in entity.name:
+                    # draw arrow
+                    if entity.movable:
+                        theta = entity.state.theta
+                        radius = entity.size
+                        start = (0, 0)
+                        end = (math.cos(theta)*radius, math.sin(theta)*radius)
+                        arrow = rendering.make_line(start, end)
+                        arrow.add_attr(xform)
+                        self.arrow_geoms.append(arrow)
+                        self.arrow_geoms_xform.append(xform)
+          
                     geom.set_color(*entity.color, alpha=0.5)
 
-                    # 新增 entity.silent 判断
+                    # entity.silent
                     if not entity.silent:
                         dim_c = self.world.dim_c
                         # make circles to represent communication
@@ -320,12 +334,10 @@ class MultiAgentEnv(gym.Env):
                             entity_comm_geoms.append(comm)
                 geom.add_attr(xform)
                 self.render_geoms.append(geom)
-                self.render_geoms_xform.append(xform)
-
-                # 新增 comm_geoms.append(entity_comm_geoms)
+                self.render_geoms_xform.append(xform)                
                 self.comm_geoms.append(entity_comm_geoms)
 
-            # 新增
+
             for wall in self.world.walls:
                 corners = ((wall.axis_pos - 0.5 * wall.width, wall.endpoints[0]),
                            (wall.axis_pos - 0.5 * wall.width, wall.endpoints[1]),
@@ -340,20 +352,17 @@ class MultiAgentEnv(gym.Env):
                     geom.set_color(*wall.color, alpha=0.5)
                 self.render_geoms.append(geom)
 
-            # add geoms to viewer
-            # for viewer in self.viewers:
-            #     viewer.geoms = []
-            #     for geom in self.render_geoms:
-            #         viewer.add_geom(geom)
-
             for viewer in self.viewers:
                 viewer.geoms = []
                 for geom in self.render_geoms:
                     viewer.add_geom(geom)
+                #for arrow in self.arrow_geoms:
+                    #viewer.add_onetime(arrow)    
                 for entity_comm_geoms in self.comm_geoms:
                     for geom in entity_comm_geoms:
                         viewer.add_geom(geom)
 
+        
         results = []
         for i in range(len(self.viewers)):
             from multiagent import rendering
@@ -362,15 +371,24 @@ class MultiAgentEnv(gym.Env):
                 pos = np.zeros(self.world.dim_p)
             else:
                 pos = self.agents[i].state.p_pos
-            self.viewers[i].set_bounds(pos[0]-cam_range,pos[0]+cam_range,pos[1]-cam_range,pos[1]+cam_range)
+            self.viewers[i].set_bounds(pos[0]-cam_range, pos[0]+cam_range, pos[1]-cam_range, pos[1]+cam_range)
             # update geometry positions
             for e, entity in enumerate(self.world.entities):
                 self.render_geoms_xform[e].set_translation(*entity.state.p_pos)
 
-                # 新增
                 if 'agent' in entity.name:
                     self.render_geoms[e].set_color(*entity.color, alpha=0.5)
                     
+                    if entity.movable:
+                        radius = entity.size
+                        theta = entity.state.theta
+                        start = (0, 0)
+                        end = (math.cos(theta)*radius, math.sin(theta)*radius)
+                        arrow = self.viewers[i].draw_line(start, end)
+                        offset = rendering.Transform()
+                        offset.set_translation(*entity.state.p_pos)
+                        arrow.add_attr(offset)
+                                           
                     if not entity.silent:
                         for ci in range(self.world.dim_c):
                             color = 1 - entity.state.c[ci]
@@ -381,11 +399,8 @@ class MultiAgentEnv(gym.Env):
                         for ci in range(self.world.dim_c):
                             color = 1 - entity.channel[ci]
                             self.comm_geoms[e][ci].set_color(color, color, color)
-
             # render to display or array
             results.append(self.viewers[i].render(return_rgb_array = mode=='rgb_array'))
-
-        # print("render_call")
 
         return results
     

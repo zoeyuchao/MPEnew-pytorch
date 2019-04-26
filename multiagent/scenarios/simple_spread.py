@@ -81,7 +81,26 @@ class Scenario(BaseScenario):
                     rew -= 1
         
         return rew
+        
+    def reward(self, agent, world, world_before):
+        # Agents are rewarded based on minimum agent distance to each landmark, penalized for collisions
+        rew = 0
 
+        for l, l_before in zip(world.landmarks, world_before.landmarks):
+            dists_before = [np.sqrt(np.sum(np.square(a_before.state.p_pos - l_before.state.p_pos))) for a_before in world_before.agents]
+            dists = [np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos))) for a in world.agents]
+            delta_dists = []
+            for ll,ll_before in zip(dists, dists_before):
+                delta_dists.append(ll-ll_before)
+
+            rew -= min( delta_dists )
+
+        if agent.collide:
+            for a in world.agents:
+                if self.is_collision(a, agent):
+                    rew -= 1
+        return rew
+        
     def observation(self, agent, world):
         # get positions of all entities in this agent's reference frame
         entity_pos = []
@@ -89,16 +108,27 @@ class Scenario(BaseScenario):
             theta = agent.state.theta
             delta = entity.state.p_pos - agent.state.p_pos
             R = np.array([[math.cos(theta),math.sin(theta)],[-math.sin(theta),math.cos(theta)]])
-            entity_pos.append(np.dot(R,delta))
+            xy_pos = np.dot(R, delta)
+            p = np.sqrt(np.sum(np.square(xy_pos)))
+            alpha = math.atan2(xy_pos[1], xy_pos[0])
+            entity_pos.append([p,alpha])
                    
         # communication of all other agents
         comm = []
         other_pos = []
+        self_theta = []
+        other_theta = []
         for other in world.agents:
-            if other is agent: continue
+            if other is agent: 
+                self_theta.append(np.array([agent.state.theta]))
+                continue
             comm.append(other.state.c)
+            other_theta.append(np.array([other.state.theta]))
             theta = agent.state.theta
             delta = other.state.p_pos - agent.state.p_pos
             R = np.array([[math.cos(theta),math.sin(theta)],[-math.sin(theta),math.cos(theta)]])
-            other_pos.append(np.dot(R,delta))
-        return np.concatenate(entity_pos + other_pos + comm)
+            xy_pos = np.dot(R, delta)
+            p = np.sqrt(np.sum(np.square(xy_pos)))
+            alpha = math.atan2(xy_pos[1], xy_pos[0])
+            entity_pos.append([p,alpha])
+        return np.concatenate(entity_pos + other_pos)

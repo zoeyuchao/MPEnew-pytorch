@@ -11,6 +11,8 @@ class EntityState(object):
         self.p_vel = None
         # axis
         self.theta = 0
+        # reach target
+        self.reach = False
 
 # state of agents (including communication and internal/mental state)
 class AgentState(EntityState):
@@ -63,9 +65,11 @@ class Entity(object):
         # color
         self.color = None
         # max speed
-        self.max_linear_speed = 1
+        self.max_linear_speed = 1.0
+        self.min_linear_speed = 0.01
         # min radius
-        self.max_angular_speed = 1
+        self.max_angular_speed = 1.0
+        
         # accel
         self.accel = None
         # state: including internal/mental state p_pos, p_vel
@@ -245,7 +249,10 @@ class World(object):
                     entity.state.p_vel[1] = angular_speed
             
             #calculate radius
-            if ( abs(entity.state.p_vel[1])< 0.00001 ):
+            if ( abs(entity.state.p_vel[1])< entity.min_linear_speed ):
+                linear_speed = entity.min_linear_speed
+                math.copysign(linear_speed, entity.state.p_vel[1])
+                entity.state.p_vel[1] = linear_speed
                 x = entity.state.p_vel[0] * self.dt
                 y = 0
                 theta_temp = 0

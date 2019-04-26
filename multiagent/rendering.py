@@ -239,6 +239,9 @@ class FilledPolygon(Geom):
         for p in self.v:
             glVertex3f(p[0], p[1],0)  # draw each vertex
         glEnd()
+        
+def make_line(start, end):
+    return Line(start, end)
 
 def make_circle(radius=10, res=30, filled=True):
     points = []
