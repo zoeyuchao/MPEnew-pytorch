@@ -6,7 +6,7 @@ This is pytorch version of MPE, forked from the pytorch [MPE](https://github.com
 - 20190418晚上：增加了simple_crypto_display文件和simple_spread_avoid文件，修改了environment文件的render函数，现在可以支持crypto文件的评价可视化。修改了core文件，给entity类增加了channel属性。
 - 20190425：环境的运动机制改成了线速度和角速度，修改了训练的步数，修改了simple_spread_avoid文件，改了reward和obs函数，增加了pos_in_agentaxis()函数。修改了environment文件。
 - 20190426：增加了agent的方向属性，增加了可视化属性。
-
+- 20190505: 增加了几个任务文件跟spread任务相关的，其他几个不需要通信的任务进行了修改，开始训练了，给agent增加了reach属性，路标也增加了reach属性。
 ## Instruction
 
 A simple multi-agent particle world with a continuous observation and discrete action space, along with some basic simulated physics.
