@@ -20,6 +20,8 @@ class AgentState(EntityState):
         super(AgentState, self).__init__()
         # communication utterance
         self.c = None
+        # reach target
+        self.reach = None
 
 # action of the agent
 class Action(object):

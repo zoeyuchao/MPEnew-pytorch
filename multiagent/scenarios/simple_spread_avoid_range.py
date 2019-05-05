@@ -137,9 +137,18 @@ class Scenario(BaseScenario):
 
         if agent.collide:
             for a in world.agents:
-                if self.is_collision(a, agent):
-                    rew -= 15
-        #print(rew)
+                if a is agent:
+                    continue
+                else:
+                    dist = np.sqrt(np.sum(np.square(a.state.p_pos - agent.state.p_pos)))
+                    if dist < 3 * agent.size:
+                        if self.is_collision(a, agent):
+                            rew -= 15
+                        else:
+                            rew -= (3 * agent.size - dist)
+                            #print(rew)
+                
+        print(rew)
         return rew
     
     def pos_in_agentaxis(self, agent, entity):

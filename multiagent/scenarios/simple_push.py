@@ -2,11 +2,7 @@ import numpy as np
 from multiagent.core import World, Agent, Landmark
 from multiagent.scenario import BaseScenario
 import random
-
-#
-#     # the non-ensemble version of <ensemble_push>
-#
-#
+import math
 
 class Scenario(BaseScenario):
     def make_world(self):
@@ -63,7 +59,7 @@ class Scenario(BaseScenario):
             landmark.state.p_pos = 0.8 * np.random.uniform(-1, +1, world.dim_p)
             landmark.state.p_vel = np.zeros(world.dim_p)
 
-    def reward(self, agent, world):
+    def reward(self, agent, world, world_before):
         # Agents are rewarded based on minimum agent distance to each landmark
         return self.adversary_reward(agent, world) if agent.adversary else self.agent_reward(agent, world)
 
@@ -80,12 +76,21 @@ class Scenario(BaseScenario):
         neg_rew = np.sqrt(np.sum(np.square(agent.goal_a.state.p_pos - agent.state.p_pos)))
         #neg_rew = sum([np.sqrt(np.sum(np.square(a.state.p_pos - agent.state.p_pos))) for a in world.good_agents])
         return pos_rew - neg_rew
-               
+        
+    def pos_in_agentaxis(self, agent, entity):
+        theta = agent.state.theta
+        delta = entity.state.p_pos - agent.state.p_pos
+        R = np.array([[math.cos(theta), math.sin(theta)],[-math.sin(theta), math.cos(theta)]])
+        xy_pos = np.dot(R, delta)
+        p = np.sqrt(np.sum(np.square(xy_pos)))
+        alpha = math.atan2(xy_pos[1], xy_pos[0])
+        return [p, alpha]    
+                   
     def observation(self, agent, world):
         # get positions of all entities in this agent's reference frame
         entity_pos = []
         for entity in world.landmarks:  # world.entities:
-            entity_pos.append(entity.state.p_pos - agent.state.p_pos)
+            entity_pos.append(self.pos_in_agentaxis(agent, entity))
         # entity colors
         entity_color = []
         for entity in world.landmarks:  # world.entities:
@@ -93,12 +98,19 @@ class Scenario(BaseScenario):
         # communication of all other agents
         comm = []
         other_pos = []
+
         for other in world.agents:
             if other is agent: continue
             comm.append(other.state.c)
-            other_pos.append(other.state.p_pos - agent.state.p_pos)
+            other_pos.append(self.pos_in_agentaxis(agent, other))
+            
+        goal_pos = np.array(self.pos_in_agentaxis(agent, agent.goal_a))
+        self_theta = np.array([agent.state.theta])
+        
         if not agent.adversary:
-            return np.concatenate([agent.state.p_vel] + [agent.goal_a.state.p_pos - agent.state.p_pos] + [agent.color] + entity_pos + entity_color + other_pos)
+            #return np.concatenate(self_theta + [agent.state.p_vel] + goal_pos + [agent.color] + entity_pos + entity_color + other_pos)
+            return np.concatenate(goal_pos + entity_pos + other_pos)
         else:
             #other_pos = list(reversed(other_pos)) if random.uniform(0,1) > 0.5 else other_pos  # randomize position of other agents in adversary network
-            return np.concatenate([agent.state.p_vel] + entity_pos + other_pos)
+            #return np.concatenate(self_theta + [agent.state.p_vel] + entity_pos + other_pos)
+            return np.concatenate(entity_pos + other_pos)

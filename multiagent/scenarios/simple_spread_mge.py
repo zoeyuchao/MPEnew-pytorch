@@ -2,15 +2,14 @@ import numpy as np
 from multiagent.core import World, Agent, Landmark
 from multiagent.scenario import BaseScenario
 import math
-
+pre_dist = 0.6
 class Scenario(BaseScenario):
     def make_world(self):
         world = World()
         # set any world properties first
         world.dim_c = 2
-        num_agents = 4
-        num_landmarks = 4
-        #world.collaborative = True
+        num_agents = 3 
+        num_landmarks = 3
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
         for i, agent in enumerate(world.agents):
@@ -42,13 +41,13 @@ class Scenario(BaseScenario):
                 agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
             else:
                 if i == 0:
-                    agent.state.p_pos = np.array([0.8, 0.8])
+                    agent.state.p_pos = np.array([pre_dist, pre_dist])
                 if i == 1:
-                    agent.state.p_pos = np.array([0.8, -0.8])
+                    agent.state.p_pos = np.array([pre_dist, -pre_dist])
                 if i == 2:
-                    agent.state.p_pos = np.array([-0.8, 0.8])
+                    agent.state.p_pos = np.array([-pre_dist, -pre_dist])
                 if i == 3:
-                    agent.state.p_pos = np.array([-0.8, -0.8])
+                    agent.state.p_pos = np.array([-pre_dist, pre_dist])
             
             agent.state.p_vel = np.zeros(world.dim_p)
             agent.state.c = np.zeros(world.dim_c)
@@ -58,13 +57,13 @@ class Scenario(BaseScenario):
                 landmark.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
             else:
                 if i == 2:
-                    landmark.state.p_pos = np.array([0.8, 0.8])
+                    landmark.state.p_pos = np.array([pre_dist, pre_dist])
                 if i == 3:
-                    landmark.state.p_pos = np.array([0.8, -0.8])
+                    landmark.state.p_pos = np.array([pre_dist, -pre_dist])
                 if i == 0:
-                    landmark.state.p_pos = np.array([-0.8, 0.8])
+                    landmark.state.p_pos = np.array([-pre_dist, -pre_dist])
                 if i == 1:
-                    landmark.state.p_pos = np.array([-0.8, -0.8])
+                    landmark.state.p_pos = np.array([-pre_dist, pre_dist])
             
             landmark.state.p_vel = np.zeros(world.dim_p)
 
@@ -73,21 +72,23 @@ class Scenario(BaseScenario):
         collisions = 0
         occupied_landmarks = 0
         min_dists = 0
-        for l in world.landmarks:
-            dists = [np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos))) for a in world.agents]
-            min_dists += min(dists)
-            rew -= min(dists)
-            if min(dists) < 0.1:
+        for a, l in zip(world.agents, world.landmarks):
+            dist = np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos)))
+            if dist < a.size:
                 occupied_landmarks += 1
+            rew -= dist
+            dists += dist
         if agent.collide:
             for a in world.agents:
                 if self.is_collision(a, agent):
                     rew -= 1
                     collisions += 1
-        return (rew, collisions, min_dists, occupied_landmarks)
+        return (rew, collisions, dists, occupied_landmarks)
 
 
     def is_collision(self, agent1, agent2):
+        if agent1 is agent2:
+            return False
         delta_pos = agent1.state.p_pos - agent2.state.p_pos
         dist = np.sqrt(np.sum(np.square(delta_pos)))
         dist_min = agent1.size + agent2.size
@@ -99,7 +100,7 @@ class Scenario(BaseScenario):
 
         for i in range(len(world.landmarks)):
             dist = np.sqrt(np.sum(np.square(world.agents[i].state.p_pos - world.landmarks[i].state.p_pos)))            
-            if(dist < ( world.agents[i].size + world.landmarks[i].size) ):
+            if(dist < world.agents[i].size):
                 rew += 15
             else:
             	rew -= dist
@@ -114,35 +115,39 @@ class Scenario(BaseScenario):
         # Agents are rewarded based on minimum agent distance to each landmark, penalized for collisions
         rew = 0
 
-        for i in range(len(world.landmarks)):
-            dist_before = np.sqrt(np.sum(np.square(world_before.agents[i].state.p_pos - world_before.landmarks[i].state.p_pos)))
-            dist = np.sqrt(np.sum(np.square(world.agents[i].state.p_pos - world.landmarks[i].state.p_pos)))
-
-            if(dist < ( world.agents[i].size + world.landmarks[i].size) ):
-                rew += 15
-                world.agents[i].state.reach = True
-            else:
-        	      rew -= (dist-dist_before)
+        for a_before, l_before, a, l in zip(world_before.agents, world_before.landmarks, world.agents, world.landmarks):
+            if a is agent:
+                dist_before = np.sqrt(np.sum(np.square(a_before.state.p_pos - l_before.state.p_pos)))
+                dist = np.sqrt(np.sum(np.square(a.state.p_pos - l.state.p_pos)))
+            
+                if(dist < agent.size):
+                    rew += 15
+                else:
+                    rew -= (2 * dist - dist_before)
 
         if agent.collide:
             for a in world.agents:
                 if self.is_collision(a, agent):
                     rew -= 15
+        #print(rew)
         return rew
-
+ 
+    def pos_in_agentaxis(self, agent, entity):
+        theta = agent.state.theta
+        delta = entity.state.p_pos - agent.state.p_pos
+        R = np.array([[math.cos(theta), math.sin(theta)],[-math.sin(theta), math.cos(theta)]])
+        xy_pos = np.dot(R, delta)
+        p = np.sqrt(np.sum(np.square(xy_pos)))
+        alpha = math.atan2(xy_pos[1], xy_pos[0])
+        return [p, alpha]
+  
     def observation(self, agent, world):
         # get positions of all entities in this agent's reference frame
         entity_pos = []
 
         for i, landmark in enumerate(world.landmarks):
             if world.agents[i] is agent:
-                theta = agent.state.theta
-                delta = landmark.state.p_pos - agent.state.p_pos
-                R = np.array([[math.cos(theta),math.sin(theta)],[-math.sin(theta),math.cos(theta)]])
-                xy_pos = np.dot(R, delta)
-                p = np.sqrt(np.sum(np.square(xy_pos)))
-                alpha = math.atan2(xy_pos[1], xy_pos[0])
-                entity_pos.append([p,alpha])
+                entity_pos.append(self.pos_in_agentaxis(agent, landmark))
 
         # communication of all other agents
         comm = []
@@ -155,12 +160,6 @@ class Scenario(BaseScenario):
                 continue
             comm.append(other.state.c)
             other_theta.append(np.array([other.state.theta]))
-            theta = agent.state.theta
-            delta = other.state.p_pos - agent.state.p_pos
-            R = np.array([[math.cos(theta),math.sin(theta)],[-math.sin(theta),math.cos(theta)]])
-            xy_pos = np.dot(R, delta)
-            p = np.sqrt(np.sum(np.square(xy_pos)))           
-            alpha = math.atan2(xy_pos[1], xy_pos[0])
-            other_pos.append([p,alpha])
-     
+            other_pos.append(self.pos_in_agentaxis(agent, other))
+
         return np.concatenate(entity_pos + other_pos)
